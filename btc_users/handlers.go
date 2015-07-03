@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"gorillamux"
+	"github.com/gorilla/mux"
 	_ "mysql"
 	"io"
 	"io/ioutil"
@@ -23,9 +23,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 // handle requests to users endpoint ("/users")
 func AllUsers(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
-    if ValidateSession(r) {
-    	fmt.Printf("We're good!")
-    }
+	SaveSession(w, r)
 	queryString := makeQueryString("GET", "")
 	displayString := getUsersFromDB(queryString)
 	if displayString == "null" {

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gorillamux"
+	"github.com/gorilla/mux"
 )
 
 func NewRouter() *mux.Router {

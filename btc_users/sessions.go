@@ -12,7 +12,7 @@ func SaveSession(w http.ResponseWriter, r *http.Request) {
 }
 
 func ValidateSession(r *http.Request) bool {
-	cookie, err := http.Cookie("test")
+	_, err := r.Cookie("test")
 	if err != nil {
 		return false
 	}
