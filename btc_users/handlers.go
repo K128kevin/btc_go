@@ -14,15 +14,17 @@ import (
 // handle requests to root ("/")
 func Index(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
-	fmt.Fprintln(w, "This is a service for accessing user data.")
-	fmt.Fprintf(w, "\nYou can access all users by sending a get request to /users")
-	fmt.Fprintf(w, "\nYou can delete/edit/read a specific user by sending the appropriate request (delete/put/get) to /users/{userId}")
-	fmt.Fprintf(w, "\nYou can create a user by posting JSON data to /users")
+	fmt.Fprintln(w, "Default api page, will serve a file here to explain APIs")
 }
 
 // handle requests to users endpoint ("/users")
 func AllUsers(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
+    if (ValidateSession(r)) {
+    	fmt.Printf("\nSession Active")
+    } else {
+    	fmt.Printf("\nSession Inactive")
+    }
 	SaveSession(w, r)
 	queryString := makeQueryString("GET", "")
 	displayString := getUsersFromDB(queryString)
