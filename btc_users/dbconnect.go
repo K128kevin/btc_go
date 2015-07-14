@@ -93,7 +93,7 @@ func tryToLogIn(email string, password string) bool {
     sha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
     password = sha
 	// compare to db
-	queryString := makeQueryString("GET", "")
+	queryString := makeUserQueryString("GET", "")
 	queryString = queryString + " WHERE Email = '" + email + "'"
 	retString := getUsersFromDB(queryString)
 	var data Users
@@ -113,7 +113,7 @@ func tryToLogIn(email string, password string) bool {
 
 // qType is "GET", "INSERT", "DELETE", or "UPDATE"
 // id will be empty string or id of user to get/delete/put
-func makeQueryString(qType string, id string) string {
+func makeUserQueryString(qType string, id string) string {
 	switch qType {
 		case "GET":
 			if id == "" {

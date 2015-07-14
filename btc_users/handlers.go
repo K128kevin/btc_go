@@ -26,7 +26,7 @@ func AllUsers(w http.ResponseWriter, r *http.Request) {
     	fmt.Printf("\nSession Inactive")
     }
 	SaveSession(w, r)
-	queryString := makeQueryString("GET", "")
+	queryString := makeUserQueryString("GET", "")
 	displayString := getUsersFromDB(queryString)
 	if displayString == "null" {
 		displayString = "No data found :("
@@ -40,7 +40,7 @@ func SpecificUser(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	userId := vars["userId"]
-	queryString := makeQueryString("GET", userId)
+	queryString := makeUserQueryString("GET", userId)
 	displayString := getUsersFromDB(queryString)
 	if displayString == "null" {
 		displayString = "No data found :("
@@ -63,7 +63,7 @@ func UserCreate(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	}
-	queryString := makeQueryString("INSERT", "")
+	queryString := makeUserQueryString("INSERT", "")
 	if (!addUserToDB(queryString, user)) {
 		fmt.Fprintf(w, "Failed to add user to database")
 	} else {
@@ -76,7 +76,7 @@ func UserDelete(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	userId := vars["userId"]
-	queryString := makeQueryString("DELETE", userId)
+	queryString := makeUserQueryString("DELETE", userId)
 	if (!deleteUserFromDB(queryString)) {
 		fmt.Fprintf(w, "Failed to delete user with id: %s", userId)
 	} else {
@@ -103,7 +103,7 @@ func UserEdit(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	}
-	queryString := makeQueryString("UPDATE", userId)
+	queryString := makeUserQueryString("UPDATE", userId)
 	if (!editUserInDB(queryString, edit)) {
 		fmt.Fprintf(w, "Failed to edit user with id: %s", userId)
 	} else {

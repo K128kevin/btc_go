@@ -71,15 +71,27 @@ var routes = Routes {
 		UserLogin,
 	},
 	Route {
-		"PredictionData",
+		"GetPredictionData",
 		"GET",
-		root + "/data/predictions/{stockId}",
+		root + "/data/predictions",
 		PredictionGet,
 	},
 	Route {
-		"PriceData",
+		"AddPredictionData",
+		"POST",
+		root + "/data/predictions",
+		PredictionAdd,
+	},
+	Route {
+		"GetPriceData",
 		"GET",
 		root + "/data/prices/{stockId}",
 		PriceGet,
+	},
+	Route {
+		"AddPriceData",
+		"POST",
+		root + "/data/prices/{stockId}",
+		PriceAdd,
 	},
 }
