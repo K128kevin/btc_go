@@ -235,7 +235,8 @@ func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice 
 		return []SinglePrice{}
 	}
 	count := 0.0
-	sum := 0.0
+	priceSum := 0.0
+	volSum := 0.0
 	start := prices[0].Timestamp
 	var newPrices []SinglePrice
 	var tempPrice SinglePrice
@@ -243,24 +244,27 @@ func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice 
 	for i = 0; i < len(prices); i++ {
 		if prices[i].Timestamp - start >= interval || i == len(prices) - 1 {
 			start = prices[i].Timestamp // set new start point to current TS
-			sum /= count // actually calculate average
+			priceSum /= count // actually calculate average
 			tempPrice.Timestamp = start + interval // set timestamp for this price average
-			tempPrice.Price = sum
+			tempPrice.Volume = volSum
+			tempPrice.Price = priceSum
 			// add price to return array
 			newPrices = append(newPrices, tempPrice)
 			// reset sum and count so we can start over
-			sum = 0
+			priceSum = 0
+			volSum = 0
 			count = 0
-		} else {
-			count++
-			// find stockId in Price object, add its price to sum
-			inner: for _, val := range prices[i].StockId {
-				if val.Name == stockId {
-					sum += val.Price
-					break inner
-				}
+		} 
+		count++
+		// find stockId in Price object, add its price to sum
+		inner: for _, val := range prices[i].StockId {
+			if val.Name == stockId {
+				priceSum += val.Price
+				volSum += val.Volume
+				break inner
 			}
 		}
+		
 	}
 	return newPrices
 }

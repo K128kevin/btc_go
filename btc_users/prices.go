@@ -34,6 +34,7 @@ type Price struct {
 type StockPrice struct {
 	Name			string
 	Price			float64
+	Volume			float64
 }
 ///////////////////////////////////////
 
@@ -41,4 +42,5 @@ type StockPrice struct {
 type SinglePrice struct {
 	Timestamp		int
 	Price			float64
+	Volume			float64
 }
