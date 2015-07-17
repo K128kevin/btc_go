@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"encoding/json"
 	"net/http"
-	"github.com/gorilla/mux"
 	"strconv"
 	"time"
 	"io"
@@ -22,8 +21,6 @@ func ValidateDataParams(w http.ResponseWriter, r *http.Request) (bool, int, int,
     start := r.FormValue("start")
     end := r.FormValue("end")
     interval := r.FormValue("interval")
-	vars := mux.Vars(r)
-	stockId := vars["stockId"]
 
 	// make sure all parameters are included
 	returnVal := true
@@ -43,7 +40,7 @@ func ValidateDataParams(w http.ResponseWriter, r *http.Request) (bool, int, int,
 		return returnVal, 0, 0, 0
 	}
 
-	fmt.Printf("\nStock ID: %s\nStart timestamp: %s\nEnd timestamp: %s\nInterval: %s\n", stockId, start, end, interval)
+	// fmt.Printf("\nStock ID: %s\nStart timestamp: %s\nEnd timestamp: %s\nInterval: %s\n", stockId, start, end, interval)
 
     // convert start, end, and interval strings to ints
     startInt, err := strconv.Atoi(start)
@@ -92,58 +89,203 @@ func ValidateDataParams(w http.ResponseWriter, r *http.Request) (bool, int, int,
 
 }
 
-func PredictionGet(w http.ResponseWriter, r *http.Request) {
-	err, startInt, endInt, intervalInt := ValidateDataParams(w, r)
-	fmt.Println(intervalInt)
+func ValidatePredictionParams(w http.ResponseWriter, r *http.Request) (bool, int, int, string, string) {
 	// get data from URL
+    start := r.FormValue("start")
+    end := r.FormValue("end")
 	stockId := r.FormValue("stockId")
 	predType := r.FormValue("predType")
 
+	// make sure all parameters are included
+	returnVal := true
+	if start == "" {
+		fmt.Fprintln(w, "Please provide a start timestamp (&start=1234567890)")
+		returnVal = false
+	}
+	if end == "" {
+		fmt.Fprintln(w, "Please provide an end timestamp (&end=1234567890)")
+		returnVal = false
+	}
+	if stockId == "" {
+		fmt.Fprintln(w, "Please provide a stock id (&stockId=MSFT)")
+		returnVal = false
+	}
+	if predType == "" {
+		fmt.Fprintln(w, "Please provide a prediction type (&predType=prediction1)")
+		returnVal = false
+	}
+	if returnVal == false {
+		return false, 0, 0, "", ""
+	}
+
+
+
+	// convert start, end, and interval strings to ints
+    startInt, err := strconv.Atoi(start)
+    if err != nil {
+        fmt.Println(err)
+        returnVal = false
+    }
+    endInt, err := strconv.Atoi(end)
+    if err != nil {
+        fmt.Println(err)
+        returnVal = false
+    }
+
+	if startInt > endInt {
+		fmt.Fprintln(w, "Start timestmap must be before (less than) end timestamp")
+		return false, 0, 0, "", ""
+	}
+
+	t := time.Now()
+	currentTs := t.Format("20060102150405")
+	tsInt, err := strconv.Atoi(currentTs)
+    if err != nil {
+        fmt.Println(err)
+        returnVal = false
+    }
+
+    if endInt > tsInt || startInt < EARLIEST_TS {
+		fmt.Fprintf(w, "Either start date is too early or end date is too late")
+		fmt.Fprintf(w, "\nEarliest available data is at timestamp %d", EARLIEST_TS)
+		fmt.Fprintf(w, "\nLatest available data is at timestamp %d (current timestamp)", tsInt)
+		return false, 0, 0, "", ""
+    }
+
+	return true, startInt, endInt, stockId, predType
+}
+
+// Creates array of PriceEntry structs and converts it to json, which is then returned as string (Fprintf)
+// struct is populated by querying database (mongodb) using params in request URL
+func PredictionGet(w http.ResponseWriter, r *http.Request) {
+	err, startInt, endInt, stockId, predType := ValidatePredictionParams(w, r)
+
     w.Header().Set("Access-Control-Allow-Origin", "*") // cors
     if !err {
-    	fmt.Fprintln(w, "Failed to validate parameters provided")
+    	fmt.Fprintln(w, "\nFailed to validate parameters provided")
+    	return
     }
     // if we get here that means we have a valid start/end timestamp range with a valid interval
     // now time to query the database for that data and return it in json format
-    var vals []Price
-    var i int
-    for i = startInt; i < endInt; i += 1 {
-    	newRow := GetPredictionData(i, stockId, predType)
-    	if len(newRow) > 0 { // only add new row if there is actually data
-    		temp := GetPredictionData(i, stockId, predType)
-    		var tempPrice Price
-    		tempPrice.Timestamp = i
-    		tempPrice.Prices = temp
-    		vals = append(vals, tempPrice)
-    	}
-    }
-    // vals := GetPredictionData(startInt, endInt, intervalInt)
-    retVal, _ := json.Marshal(vals)
+    var pricey []PriceEntry
+    var preddy []Prediction
+    pricey = GetPredictionData(startInt, endInt) // connect to database and get all PriceEntry structs in timestamp range
+    preddy = PriceEntryToPrediction(pricey, stockId, predType) // convert this array to an array of Prediction structs
+    retVal, _ := json.Marshal(preddy) // convert to json string and return this in response
     fmt.Fprintf(w, "%s", retVal)
-    // for _, element := range vals {
-    // 	fmt.Fprintf(w, "\n[")
-    // 	for _, val := range element {
-    // 		fmt.Fprintf(w, "%d, ", val)
-    // 	}
-    // 	fmt.Fprintf(w, "]")
-    // }
+}
+
+func PriceEntryToPrediction(pe []PriceEntry, sid string, pt string) []Prediction {
+	// find the right entry and return it
+	var i int
+	var preddy []Prediction // array to be returned
+	for i = 0; i < len(pe); i++ { // loop through every PriceEntry to convert it to a Prediction based on StockId and PredType
+		// create temporary new Prediction object, which will be added to array of Predictions that will be returned
+		var tempPred Prediction
+		tempPred.Timestamp = pe[i].Timestamp
+		tempPred.StockId = sid
+		tempPred.PredictionType = pt
+		// now we have to populate its predictions
+		// so we have to find the predictions for the given StockId and PredType in the PriceEntry
+		for _, se := range pe[i].StockEntry { // loop through each StockEntry within each PredEntry
+			if se.StockId == sid { // only continue when StockId matches given sid
+				for _, pre := range se.PredEntry { // loop through each Pred Entry where StockId was found to be a match
+					if pre.PredType == pt { // only continue when PredType matches given pt
+						tempPred.Predictions = pre.Predictions
+					}
+				}
+			}
+		}
+		if len(tempPred.Predictions) > 0 {
+			preddy = append(preddy, tempPred)
+		}
+	}
+	return preddy // CompressPredictionArray(preddy, interval)
 }
 
 func PriceGet(w http.ResponseWriter, r *http.Request) {
-	/*err, startInt, endInt, intervalInt := ValidateDataParams(w, r)
+	err, startInt, endInt, intervalInt := ValidateDataParams(w, r)
+	stockId := r.FormValue("stockId")
+	if stockId == "" {
+		fmt.Fprintln(w, "Please provide a stockId (&stockId=MSFT)")
+		return
+	}
 
     w.Header().Set("Access-Control-Allow-Origin", "*") // cors
     if !err {
     	fmt.Fprintln(w, "Failed to validate parameters provided")
-    }*/
+    }
+
     // if we get here that means we have a valid start/end timestamp range with a valid interval
     // now time to query the database for that data and return it in json format
     
+    // first query db and get Price array
+    var prices []Price
+    prices = GetPriceData(startInt, endInt)
+    // now compress prices based on interval
+    var smallerPrices []SinglePrice
+    smallerPrices = CompressPrices(prices, stockId, intervalInt)
+    // finally, jsonify it and print to responsewriter
+    retVal, _ := json.Marshal(smallerPrices)
+    fmt.Fprintf(w, "%s", retVal)
+}
 
+func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice {
+	if len(prices) < 1 {
+		return []SinglePrice{}
+	}
+	count := 0.0
+	sum := 0.0
+	start := prices[0].Timestamp
+	var newPrices []SinglePrice
+	var tempPrice SinglePrice
+	var i int
+	for i = 0; i < len(prices); i++ {
+		if prices[i].Timestamp - start >= interval || i == len(prices) - 1 {
+			start = prices[i].Timestamp // set new start point to current TS
+			sum /= count // actually calculate average
+			tempPrice.Timestamp = start + interval // set timestamp for this price average
+			tempPrice.Price = sum
+			// add price to return array
+			newPrices = append(newPrices, tempPrice)
+			// reset sum and count so we can start over
+			sum = 0
+			count = 0
+		} else {
+			count++
+			// find stockId in Price object, add its price to sum
+			inner: for _, val := range prices[i].StockId {
+				if val.Name == stockId {
+					sum += val.Price
+					break inner
+				}
+			}
+		}
+	}
+	return newPrices
 }
 
 func PriceAdd(w http.ResponseWriter, r *http.Request) {
-
+	w.Header().Set("Access-Control-Allow-Origin", "*") // cors
+	var price Price
+	// parse request body
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		fmt.Fprintf(w, "Error reading request body")
+	}
+	if err := json.Unmarshal(body, &price); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(422) // unprocessable entity
+		if err := json.NewEncoder(w).Encode(err); err != nil {
+			panic(err)
+		}
+	}
+	// add price object to database
+	if AddPriceData(price) {
+		fmt.Fprintf(w, "Data added successfully! :)")
+	} else {
+		fmt.Fprintf(w, "Failed to add data :(")
+	}
 }
 
 // add json data in body to mongodb list of data points
@@ -169,5 +311,3 @@ func PredictionAdd(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Failed to add data :(")
 	}
 }
-
-

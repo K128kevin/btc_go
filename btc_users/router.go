@@ -85,13 +85,13 @@ var routes = Routes {
 	Route {
 		"GetPriceData",
 		"GET",
-		root + "/data/prices/{stockId}",
+		root + "/data/prices",
 		PriceGet,
 	},
 	Route {
 		"AddPriceData",
 		"POST",
-		root + "/data/prices/{stockId}",
+		root + "/data/prices",
 		PriceAdd,
 	},
 }
