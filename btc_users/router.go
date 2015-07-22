@@ -1,7 +1,7 @@
 package main
 
 import (
-	"gorillamux"
+	"github.com/gorilla/mux"
 )
 
 func NewRouter() *mux.Router {
@@ -19,53 +19,79 @@ func NewRouter() *mux.Router {
 	return router
 }
 
+var root = "/api"
+
 var routes = Routes {
 	Route {
 		"Index",
 		"GET",
-		"/",
+		root,
 		Index,
 	},
 	Route {
 		"UserIndex",
 		"GET",
-		"/users",
+		root + "/users",
 		AllUsers,
 	},
 	Route {
 		"UserShow",
 		"GET",
-		"/users/{userId}",
+		root + "/users/{userId}",
 		SpecificUser,
 	},
 	Route {
 		"UserCreate",
 		"POST",
-		"/users",
+		root + "/users",
 		UserCreate,
 	},
 	Route {
 		"UserDelete",
 		"DELETE",
-		"/users/{userId}",
+		root + "/users/{userId}",
 		UserDelete,
 	},
 	Route {
 		"UserEdit",
 		"PUT",
-		"/users/{userId}",
+		root + "/users/{userId}",
 		UserEdit,
 	},
 	Route {
 		"Options",
 		"OPTIONS",
-		"/users/{userId}",
+		root + "/users/{userId}",
 		UserOptions,
 	},
 	Route {
 		"Login",
 		"POST",
-		"/users/login",
+		root + "/users/login",
 		UserLogin,
+	},
+	Route {
+		"GetPredictionData",
+		"GET",
+		root + "/data/predictions",
+		PredictionGet,
+	},
+	Route {
+		"AddPredictionData",
+		"POST",
+		root + "/data/predictions",
+		PredictionAdd,
+	},
+	Route {
+		"GetPriceData",
+		"GET",
+		root + "/data/prices",
+		PriceGet,
+	},
+	Route {
+		"AddPriceData",
+		"POST",
+		root + "/data/prices",
+		PriceAdd,
 	},
 }
