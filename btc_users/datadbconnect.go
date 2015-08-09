@@ -41,8 +41,10 @@ func GetPriceData(start int, end int) []Price {
 	// query database, check for errors
 	err = col.Find(bson.M{"timestamp":bson.M{"$lt":end, "$gt":start}}).Sort("timestamp").All(&results)
 	if err != nil {
+		fmt.Println(err)
 		fmt.Println("Error querying database")
 	}
+	fmt.Println(len(results))
 	return results
 }
 

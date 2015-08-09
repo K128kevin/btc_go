@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 )
 
-var MAX_DATA = 500
+var MAX_DATA = 250
 var MIN_INTERVAL = 300
 var MAX_INTERVAL = 1800
 var EARLIEST_TS = 1400000000
@@ -162,7 +162,7 @@ func PredictionGet(w http.ResponseWriter, r *http.Request) {
 
     w.Header().Set("Access-Control-Allow-Origin", "*") // cors
     if !err {
-    	fmt.Fprintln(w, "\nFailed to validate parameters provided")
+    	fmt.Fprintf(w, "\nFailed to validate parameters provided")
     	return
     }
     // if we get here that means we have a valid start/end timestamp range with a valid interval
@@ -213,7 +213,8 @@ func PriceGet(w http.ResponseWriter, r *http.Request) {
 
     w.Header().Set("Access-Control-Allow-Origin", "*") // cors
     if !err {
-    	fmt.Fprintln(w, "Failed to validate parameters provided")
+    	fmt.Fprintf(w, "\nFailed to validate parameters provided")
+    	return
     }
 
     // if we get here that means we have a valid start/end timestamp range with a valid interval
@@ -242,21 +243,7 @@ func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice 
 	var tempPrice SinglePrice
 	var i int
 	for i = 0; i < len(prices); i++ {
-		if prices[i].Timestamp - start >= interval || i == len(prices) - 1 {
-			start = prices[i].Timestamp // set new start point to current TS
-			priceSum /= count // actually calculate average
-			tempPrice.Timestamp = start + interval // set timestamp for this price average
-			tempPrice.Volume = volSum
-			tempPrice.Price = priceSum
-			// add price to return array
-			newPrices = append(newPrices, tempPrice)
-			// reset sum and count so we can start over
-			priceSum = 0
-			volSum = 0
-			count = 0
-		} 
-		count++
-		// find stockId in Price object, add its price to sum
+		// find stockId in Price object, add its price/volume to sum
 		inner: for _, val := range prices[i].StockId {
 			if val.Name == stockId {
 				priceSum += val.Price
@@ -264,7 +251,24 @@ func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice 
 				break inner
 			}
 		}
-		
+		count++
+		if prices[i].Timestamp - start >= interval || i == len(prices) - 1 {
+			for _, val := range prices[i].StockId {
+				if val.Name == stockId {
+					start = prices[i].Timestamp // set new start point to current TS
+					priceSum /= count // actually calculate average
+					tempPrice.Timestamp = start + interval // set timestamp for this price average
+					tempPrice.Volume = volSum
+					tempPrice.Price = priceSum
+					// add price to return array
+					newPrices = append(newPrices, tempPrice)
+					// reset sum and count so we can start over
+					priceSum = 0
+					volSum = 0
+					count = 0
+				}
+			}
+		}
 	}
 	return newPrices
 }
