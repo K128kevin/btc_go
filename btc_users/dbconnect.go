@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"database/sql"
-	_ "mysql"
+	_ "github.com/go-sql-driver/mysql"
 	"log"
 	"fmt"
     "crypto/sha1"

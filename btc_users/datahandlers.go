@@ -8,9 +8,10 @@ import (
 	"time"
 	"io"
 	"io/ioutil"
+	"strings"
 )
 
-var MAX_DATA = 250
+var MAX_DATA = 500
 var MIN_INTERVAL = 300
 var MAX_INTERVAL = 1800
 var EARLIEST_TS = 1400000000
@@ -162,7 +163,7 @@ func PredictionGet(w http.ResponseWriter, r *http.Request) {
 
     w.Header().Set("Access-Control-Allow-Origin", "*") // cors
     if !err {
-    	fmt.Fprintf(w, "\nFailed to validate parameters provided")
+    	fmt.Fprintln(w, "\nFailed to validate parameters provided")
     	return
     }
     // if we get here that means we have a valid start/end timestamp range with a valid interval
@@ -204,6 +205,7 @@ func PriceEntryToPrediction(pe []PriceEntry, sid string, pt string) []Prediction
 }
 
 func PriceGet(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nStarting PriceGet...")
 	err, startInt, endInt, intervalInt := ValidateDataParams(w, r)
 	stockId := r.FormValue("stockId")
 	if stockId == "" {
@@ -213,8 +215,7 @@ func PriceGet(w http.ResponseWriter, r *http.Request) {
 
     w.Header().Set("Access-Control-Allow-Origin", "*") // cors
     if !err {
-    	fmt.Fprintf(w, "\nFailed to validate parameters provided")
-    	return
+    	fmt.Fprintln(w, "Failed to validate parameters provided")
     }
 
     // if we get here that means we have a valid start/end timestamp range with a valid interval
@@ -222,10 +223,18 @@ func PriceGet(w http.ResponseWriter, r *http.Request) {
     
     // first query db and get Price array
     var prices []Price
+	fmt.Printf("\nAbout to get price data...")
     prices = GetPriceData(startInt, endInt)
+	fmt.Printf("\nGot price data! Timestamp: %d", prices[0].Timestamp);
     // now compress prices based on interval
     var smallerPrices []SinglePrice
+	fmt.Printf("\nAbout to compress prices...")
     smallerPrices = CompressPrices(prices, stockId, intervalInt)
+	fmt.Printf("\nPrices compressed!")
+	var i int
+	for i = 0; i < len(smallerPrices); i++ {
+		fmt.Printf("\nPrice: %f", smallerPrices[i].Price)
+	}
     // finally, jsonify it and print to responsewriter
     retVal, _ := json.Marshal(smallerPrices)
     fmt.Fprintf(w, "%s", retVal)
@@ -233,9 +242,10 @@ func PriceGet(w http.ResponseWriter, r *http.Request) {
 
 func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice {
 	if len(prices) < 1 {
+		fmt.Printf("CompressPrices - no prices given, returning empty SinglePrice array")
 		return []SinglePrice{}
 	}
-	count := 0.0
+	count := 1.0
 	priceSum := 0.0
 	volSum := 0.0
 	start := prices[0].Timestamp
@@ -243,7 +253,7 @@ func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice 
 	var tempPrice SinglePrice
 	var i int
 	for i = 0; i < len(prices); i++ {
-		// find stockId in Price object, add its price/volume to sum
+		// find stockId in Price object, add its price to sum
 		inner: for _, val := range prices[i].StockId {
 			if val.Name == stockId {
 				priceSum += val.Price
@@ -251,24 +261,21 @@ func CompressPrices(prices []Price, stockId string, interval int) []SinglePrice 
 				break inner
 			}
 		}
-		count++
 		if prices[i].Timestamp - start >= interval || i == len(prices) - 1 {
-			for _, val := range prices[i].StockId {
-				if val.Name == stockId {
-					start = prices[i].Timestamp // set new start point to current TS
-					priceSum /= count // actually calculate average
-					tempPrice.Timestamp = start + interval // set timestamp for this price average
-					tempPrice.Volume = volSum
-					tempPrice.Price = priceSum
-					// add price to return array
-					newPrices = append(newPrices, tempPrice)
-					// reset sum and count so we can start over
-					priceSum = 0
-					volSum = 0
-					count = 0
-				}
-			}
-		}
+			start = prices[i].Timestamp // set new start point to current TS
+			priceSum /= count // actually calculate average
+			volSum /= count
+			tempPrice.Timestamp = start + interval // set timestamp for this price average
+			tempPrice.Volume = volSum
+			tempPrice.Price = priceSum
+			// add price to return array
+			newPrices = append(newPrices, tempPrice)
+			// reset sum and count so we can start over
+			priceSum = 0
+			volSum = 0
+			count = 0
+		} 
+		count++
 	}
 	return newPrices
 }
@@ -278,21 +285,35 @@ func PriceAdd(w http.ResponseWriter, r *http.Request) {
 	var price Price
 	// parse request body
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	bodyString := string(body)
+	fmt.Printf("\nData to be parsed and added:\n\n%s\n\n", bodyString)
+
+	if strings.Contains(bodyString, "\\") {
+		bodyString = strings.Replace(bodyString, "\\", "", -1)
+		bodyString = strings.TrimRight(bodyString, "\"")
+		bodyString = strings.TrimLeft(bodyString, "\"")
+		fmt.Printf("Removed excape chars, should be parseable json now: \n%s", bodyString)
+	}
+
 	if err != nil {
 		fmt.Fprintf(w, "Error reading request body")
 	}
-	if err := json.Unmarshal(body, &price); err != nil {
+	if err := json.Unmarshal([]byte(bodyString), &price); err != nil {
 		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 		w.WriteHeader(422) // unprocessable entity
 		if err := json.NewEncoder(w).Encode(err); err != nil {
 			panic(err)
 		}
 	}
+	fmt.Printf("\nAdding to database...\n")
+	fmt.Printf("\nNumber of stocks: %d", len(price.StockId))
 	// add price object to database
 	if AddPriceData(price) {
 		fmt.Fprintf(w, "Data added successfully! :)")
+		fmt.Printf("\nData added successfully")
 	} else {
 		fmt.Fprintf(w, "Failed to add data :(")
+		fmt.Printf("Failed to add data")
 	}
 }
 
