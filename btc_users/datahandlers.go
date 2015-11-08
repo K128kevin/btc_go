@@ -13,7 +13,7 @@ import (
 
 var MAX_DATA = 500
 var MIN_INTERVAL = 300
-var MAX_INTERVAL = 1800
+var MAX_INTERVAL = 3600
 var EARLIEST_TS = 1400000000
 
 func ValidateDataParams(w http.ResponseWriter, r *http.Request) (bool, int, int, int) {
