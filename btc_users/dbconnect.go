@@ -86,7 +86,7 @@ func getUsersFromDB(qString string) string {
 	return string(retVal)
 }
 
-func tryToLogIn(email string, password string) bool {
+func tryToLogIn(email string, password string) LoginResponse {
 	// hash password
 	hasher := sha1.New()
 	hasher.Write([]byte(password))
@@ -97,18 +97,23 @@ func tryToLogIn(email string, password string) bool {
 	queryString = queryString + " WHERE Email = '" + email + "'"
 	retString := getUsersFromDB(queryString)
 	var data Users
+	var resp LoginResponse
 	if err := json.Unmarshal([]byte(retString), &data); err != nil {
 		log.Fatal(err)
-        return false
-    }
-    if len(data) < 1 {
-    	fmt.Printf("\nEmail not found in DB")
-    	return false
-    }
-	if password == data[0].Salt {
-		return true
+		resp.Error = true
+		resp.Message = "Invalid JSON provided"
+    } else if len(data) < 1 {
+		fmt.Printf("\nEmail not found in DB")
+		resp.Error = true
+		resp.Message = "Email not found"
+	} else if password != data[0].Salt {
+		resp.Error = true
+		resp.Message = "Password was not correct"
+	} else {
+		resp.Error = false
+		resp.Message = "Successfully logged in"
 	}
-	return false
+	return resp
 }
 
 // qType is "GET", "INSERT", "DELETE", or "UPDATE"

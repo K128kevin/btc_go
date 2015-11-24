@@ -9,3 +9,13 @@ type User struct {
 }
 
 type Users []User
+
+type Login struct {
+	Email			string
+	Password		string
+}
+
+type LoginResponse struct {
+	Error 			bool
+	Message 		string
+}

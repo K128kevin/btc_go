@@ -8,8 +8,9 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"io"
 	"io/ioutil"
-	"strings"
 )
+
+var sessions = make(map[string]Session)
 
 // handle requests to root ("/")
 func Index(w http.ResponseWriter, r *http.Request) {
@@ -20,12 +21,6 @@ func Index(w http.ResponseWriter, r *http.Request) {
 // handle requests to users endpoint ("/users")
 func AllUsers(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
-    if (ValidateSession(r)) {
-    	fmt.Printf("\nSession Active")
-    } else {
-    	fmt.Printf("\nSession Inactive")
-    }
-	SaveSession(w, r)
 	queryString := makeUserQueryString("GET", "")
 	displayString := getUsersFromDB(queryString)
 	if displayString == "null" {
@@ -118,26 +113,32 @@ func UserOptions(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
-// handles login attempts
+// handles login attempts to /users/login
 func UserLogin(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nADDR: %s", r.RemoteAddr)
     w.Header().Set("Access-Control-Allow-Origin", "*")
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
-		fmt.Fprintf(w, "Error reading request body")
+		panic(err)
 	}
-	parts := strings.Split(string(body), "*SPLITHERE*")
-	email := parts[0]
-	pass := parts[1]
-	if tryToLogIn(email, pass) {
-		// save that they are logged in
-		// if !SaveSession(w, r) {
-		// 	fmt.Printf("\nFailed to save login session")
-		// }
-		SaveSession(w, r)
-		fmt.Printf("\nSuccessful Login")
-		fmt.Fprintf(w, "true")
-	} else { // if we hit the else statement, that means the login failed
-		fmt.Printf("\nLogin Failed")
-		fmt.Fprintf(w, "false")
+	var login Login
+	if err := json.Unmarshal(body, &login); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(422) // unprocessable entity
+		if err := json.NewEncoder(w).Encode(err); err != nil {
+			panic(err)
+		}
 	}
+
+	email := login.Email
+	pass := login.Password
+	var result LoginResponse
+	result = tryToLogIn(email, pass)
+	retVal, err := json.Marshal(result)
+	SaveSession(w, r, email, sessions)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Fprintf(w, string(retVal))
+	fmt.Printf("\n%s", string(retVal))
 }

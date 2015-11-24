@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	// globalSessions = NewManager("memory", "gosessionid", 3600)
+	go startUpdates()
 	router := NewRouter()
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
