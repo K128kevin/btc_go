@@ -6,7 +6,8 @@ import (
 )
 
 func main() {
-	go startUpdates()
+	go StartSessionUpdates()
+	go ThrottleLoginAttempts()
 	router := NewRouter()
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

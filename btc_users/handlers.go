@@ -8,9 +8,11 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"io"
 	"io/ioutil"
+	"time"
 )
 
 var sessions = make(map[string]Session)
+var LoginAttempts = make(map[string]int)
 
 // handle requests to root ("/")
 func Index(w http.ResponseWriter, r *http.Request) {
@@ -113,9 +115,31 @@ func UserOptions(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
 }
 
+func ThrottleLoginAttempts() {
+	fmt.Printf("\nStarting throttle updates")
+	for _ = range time.Tick(5 * time.Minute) {
+		for k := range LoginAttempts {
+			delete(LoginAttempts, k)
+		}
+	}
+}
+
 // handles login attempts to /users/login
 func UserLogin(w http.ResponseWriter, r *http.Request) {
+	var result LoginResponse
 	fmt.Printf("\nADDR: %s", r.RemoteAddr)
+	if _, ok := LoginAttempts[r.RemoteAddr]; ok {
+		LoginAttempts[r.RemoteAddr]++
+		if LoginAttempts[r.RemoteAddr] > 10 {
+			result.Error = true
+			result.Message = "Too many login attempts - please wait a couple minutes before trying again"
+			retVal, _ := json.Marshal(result)
+			fmt.Fprintf(w, string(retVal))
+			return
+		}
+	} else {
+		LoginAttempts[r.RemoteAddr] = 1
+	}
     w.Header().Set("Access-Control-Allow-Origin", "*")
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
@@ -132,7 +156,6 @@ func UserLogin(w http.ResponseWriter, r *http.Request) {
 
 	email := login.Email
 	pass := login.Password
-	var result LoginResponse
 	result = tryToLogIn(email, pass)
 	retVal, err := json.Marshal(result)
 	SaveSession(w, r, email, sessions)

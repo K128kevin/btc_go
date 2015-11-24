@@ -53,7 +53,7 @@ func renewSession(token string, sessions map[string]Session, w http.ResponseWrit
 	http.SetCookie(w, &cookie)
 }
 
-func startUpdates() {
+func StartSessionUpdates() {
 	fmt.Printf("\nStarting session updates")
 	for _ = range time.Tick(10 * time.Second) {
 		updateSessions(sessions)
