@@ -11,11 +11,20 @@ import (
 	"time"
 )
 
-var sessions = make(map[string]Session)
+var sessions = make(map[string]Session) // key is token, value is session data
 var LoginAttempts = make(map[string]int)
+
+var throttleLimit int = 10
+var throttleDuration time.Duration = time.Minute * 5
 
 // handle requests to root ("/")
 func Index(w http.ResponseWriter, r *http.Request) {
+    w.Header().Set("Access-Control-Allow-Origin", "*")
+	fmt.Fprintln(w, "Root, nothing here yet")
+}
+
+// handle requests to api root ("/api")
+func ApiRootHandler(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
 	fmt.Fprintln(w, "Default api page, will serve a file here to explain APIs")
 }
@@ -109,15 +118,15 @@ func UserEdit(w http.ResponseWriter, r *http.Request) {
 }
 
 // handle CORS and OPTIONS preflight
-func UserOptions(w http.ResponseWriter, r *http.Request) {
+func CORSOptions(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
     w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
-    w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+    w.Header().Set("Access-Control-Allow-Headers", "Accept, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, AuthToken")
 }
 
 func ThrottleLoginAttempts() {
 	fmt.Printf("\nStarting throttle updates")
-	for _ = range time.Tick(5 * time.Minute) {
+	for _ = range time.Tick(throttleDuration) {
 		for k := range LoginAttempts {
 			delete(LoginAttempts, k)
 		}
@@ -126,11 +135,12 @@ func ThrottleLoginAttempts() {
 
 // handles login attempts to /users/login
 func UserLogin(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 	var result LoginResponse
 	fmt.Printf("\nADDR: %s", r.RemoteAddr)
 	if _, ok := LoginAttempts[r.RemoteAddr]; ok {
 		LoginAttempts[r.RemoteAddr]++
-		if LoginAttempts[r.RemoteAddr] > 10 {
+		if LoginAttempts[r.RemoteAddr] > throttleLimit {
 			result.Error = true
 			result.Message = "Too many login attempts - please wait a couple minutes before trying again"
 			retVal, _ := json.Marshal(result)
@@ -156,12 +166,32 @@ func UserLogin(w http.ResponseWriter, r *http.Request) {
 
 	email := login.Email
 	pass := login.Password
-	result = tryToLogIn(email, pass)
+	result = tryToLogIn(w, r, email, pass)
 	retVal, err := json.Marshal(result)
-	SaveSession(w, r, email, sessions)
+//	token := SaveSession(w, r, email, sessions)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Fprintf(w, string(retVal))
 	fmt.Printf("\n%s", string(retVal))
+}
+
+func CheckSession(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	token := r.Header.Get(authTokenKey)
+	var status LoginResponse
+	if token ==  "" {
+		status.Error = true
+		status.Message = "Session not found"
+		fmt.Println("no cookie found")
+	} else {
+		status.Error = true
+		status.Message = "Session cookie found but was not valid"
+		if _, ok := sessions[token]; ok {
+			status.Error = false;
+			status.Message = sessions[token].Email
+		}
+	}
+	retVal, _ := json.Marshal(status)
+	fmt.Fprintf(w, string(retVal))
 }

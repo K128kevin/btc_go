@@ -1,12 +1,8 @@
 package main
 
 import (
-	// "database/sql"
-	// _ "github.com/go-sql-driver/mysql"
-	// "log"
 	"fmt"
 	"gopkg.in/mgo.v2"
-	// "strconv"
 	"gopkg.in/mgo.v2/bson"
 )
 

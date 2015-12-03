@@ -12,10 +12,15 @@ type Session struct {
 	Expiration		time.Time
 }
 
-func SaveSession(w http.ResponseWriter, r *http.Request, email string, sessions map[string]Session) {
+var refreshRate time.Duration = time.Second * 10
+var sessionDuration time.Duration = time.Hour
+var authTokenKey string = "AuthToken"
+var tokenSize int = 16
+
+func SaveSession(w http.ResponseWriter, r *http.Request, email string, sessions map[string]Session) string {
 
 	token := randToken()
-	prevToken, err := r.Cookie("AuthToken")
+	prevToken, err := r.Cookie(authTokenKey)
 
 	// found cookie
 	if err == nil {
@@ -23,39 +28,39 @@ func SaveSession(w http.ResponseWriter, r *http.Request, email string, sessions 
 		if sessions[prevToken.Value].Email == email {
 			fmt.Printf("\n%s logged in already", email)
 			renewSession(prevToken.Value, sessions, w)
-			return
+			return "logged in already"
 		}
 	}
 
 	// no session found or session found but no matches
-	cookie := http.Cookie{Name: "AuthToken", Value: token, Expires: time.Now().Add(time.Hour), HttpOnly: true}
+//	cookie := http.Cookie{Name: authTokenKey, Value: token, Expires: time.Now().Add(sessionDuration), HttpOnly: true}
 	var tempSession Session
 	tempSession.Email = email
-	tempSession.Expiration = time.Now().Add(time.Hour)
+	tempSession.Expiration = time.Now().Add(sessionDuration)
 	sessions[token] = tempSession
-	http.SetCookie(w, &cookie)
-
+//	http.SetCookie(w, &cookie)
+	return token;
 }
 
 func randToken() string {
-	token := make([]byte, 16)
+	token := make([]byte, tokenSize)
 	rand.Read(token)
 	return fmt.Sprintf("%x", token)
 }
 
 func renewSession(token string, sessions map[string]Session, w http.ResponseWriter) {
 	var tempSession Session
-	tempSession.Expiration = time.Now().Add(time.Hour)
+	tempSession.Expiration = time.Now().Add(sessionDuration)
 	tempSession.Email = sessions[token].Email
 
 	sessions[token] = tempSession
-	cookie := http.Cookie{Name: "AuthToken", Value: token, Expires: time.Now().Add(time.Hour), HttpOnly: true}
+	cookie := http.Cookie{Name: authTokenKey, Value: token, Expires: time.Now().Add(time.Hour), HttpOnly: true}
 	http.SetCookie(w, &cookie)
 }
 
 func StartSessionUpdates() {
 	fmt.Printf("\nStarting session updates")
-	for _ = range time.Tick(10 * time.Second) {
+	for _ = range time.Tick(refreshRate) {
 		updateSessions(sessions)
 	}
 }

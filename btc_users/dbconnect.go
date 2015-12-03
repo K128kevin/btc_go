@@ -8,6 +8,7 @@ import (
 	"fmt"
     "crypto/sha1"
     "encoding/base64"
+	"net/http"
 )
 
 func addUserToDB(qString string, user User) bool {
@@ -86,7 +87,7 @@ func getUsersFromDB(qString string) string {
 	return string(retVal)
 }
 
-func tryToLogIn(email string, password string) LoginResponse {
+func tryToLogIn(w http.ResponseWriter, r *http.Request, email string, password string) LoginResponse {
 	// hash password
 	hasher := sha1.New()
 	hasher.Write([]byte(password))
@@ -111,7 +112,7 @@ func tryToLogIn(email string, password string) LoginResponse {
 		resp.Message = "Password was not correct"
 	} else {
 		resp.Error = false
-		resp.Message = "Successfully logged in"
+		resp.Message = SaveSession(w, r, email, sessions)
 	}
 	return resp
 }
