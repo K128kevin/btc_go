@@ -73,6 +73,12 @@ var routes = Routes {
 	Route {
 		"Options",
 		"OPTIONS",
+		apiRoot + "/data/predictions",
+		CORSOptions,
+	},
+	Route {
+		"Options",
+		"OPTIONS",
 		apiRoot + "/sessions",
 		CORSOptions,
 	},

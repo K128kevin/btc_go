@@ -159,6 +159,22 @@ func ValidatePredictionParams(w http.ResponseWriter, r *http.Request) (bool, int
 // Creates array of PriceEntry structs and converts it to json, which is then returned as string (Fprintf)
 // struct is populated by querying database (mongodb) using params in request URL
 func PredictionGet(w http.ResponseWriter, r *http.Request) {
+	// first, check for a valid auth header
+	headerToken := r.Header.Get(authTokenKey)
+	_, ok := sessions[headerToken]
+	if headerToken == "" || !ok {
+		var resp LoginResponse
+		resp.Error = true
+		resp.Message = "Missing or invalid auth token header"
+		fmt.Printf("\n%s", headerToken)
+		retVal, err := json.Marshal(resp)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Fprintf(w, string(retVal))
+		fmt.Printf("\n%s", string(retVal))
+		return
+	}
 	err, startInt, endInt, stockId, predType := ValidatePredictionParams(w, r)
 
     w.Header().Set("Access-Control-Allow-Origin", "*") // cors
