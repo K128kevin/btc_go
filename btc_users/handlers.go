@@ -54,6 +54,61 @@ func SpecificUser(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, displayString)
 }
 
+func UserTokenGenAndEmailLink(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	var userAction UserAction
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		fmt.Fprintf(w, "Error reading request body")
+	}
+	if err := json.Unmarshal(body, &userAction); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(422) // unprocessable entity
+		if err := json.NewEncoder(w).Encode(err); err != nil {
+			panic(err)
+		}
+	}
+
+	// generate token with userAction and add it to db
+	token := randToken(32)
+
+	// add this token to db
+	var status JSONResponse
+	// verify action and user
+	displayString := getUsersFromDB("select * from users where Email = \"" + userAction.Email + "\";")
+	if displayString == "null" {
+		status.Error = true
+		status.Message = "Could not find email " + userAction.Email
+	} else if userAction.Action != "verifyEmail" && userAction.Action != "resetPassword" {
+		status.Error = true
+		status.Message = "Invalid action provided. Valid actions are: 'verifyEmail', 'resetPassword'"
+	} else if AddUserActionToDB(token, userAction) {
+		status.Error = false
+		status.Message = "Successfully added action " + userAction.Action + " for account " + userAction.Email
+	} else {
+		status.Error = true
+		status.Message = "Failed to add action " + userAction.Action + " for account " + userAction.Email
+	}
+	retVal, _ := json.Marshal(status)
+	fmt.Fprintf(w, string(retVal))
+}
+
+func DoAction(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+//	vars := mux.Vars(r)
+//	token := vars["token"]
+	var status JSONResponse
+	// try to get data from token, return error if it does not exist
+
+	// if token does exist, perform action and remove it from the database
+
+	// return status of action
+
+	retVal, _ := json.Marshal(status)
+	fmt.Fprintf(w, string(retVal))
+}
+
 // adds given user to database and displays updated json data of all users
 func UserCreate(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -136,7 +191,7 @@ func ThrottleLoginAttempts() {
 // handles login attempts to /users/login
 func UserLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	var result LoginResponse
+	var result JSONResponse
 	fmt.Printf("\nADDR: %s", r.RemoteAddr)
 	if _, ok := LoginAttempts[r.RemoteAddr]; ok {
 		LoginAttempts[r.RemoteAddr]++
@@ -179,7 +234,7 @@ func UserLogin(w http.ResponseWriter, r *http.Request) {
 func CheckSession(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	token := r.Header.Get(authTokenKey)
-	var status LoginResponse
+	var status JSONResponse
 	if token ==  "" {
 		status.Error = true
 		status.Message = "Session not found"

@@ -53,6 +53,18 @@ var routes = Routes {
 		UserCreate,
 	},
 	Route {
+		"DoAction",
+		"POST",
+		apiRoot + "/doaction",
+		UserTokenGenAndEmailLink,
+	},
+	Route {
+		"DoAction",
+		"POST",
+		apiRoot + "/doaction/{token}",
+		DoAction,
+	},
+	Route {
 		"UserDelete",
 		"DELETE",
 		apiRoot + "/users/{userId}",

@@ -15,7 +15,12 @@ type Login struct {
 	Password		string
 }
 
-type LoginResponse struct {
+type JSONResponse struct {
 	Error 			bool
 	Message 		string
+}
+
+type UserAction struct {
+	Email			string
+	Action			string
 }

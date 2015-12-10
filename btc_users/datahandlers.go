@@ -163,7 +163,7 @@ func PredictionGet(w http.ResponseWriter, r *http.Request) {
 	headerToken := r.Header.Get(authTokenKey)
 	_, ok := sessions[headerToken]
 	if headerToken == "" || !ok {
-		var resp LoginResponse
+		var resp JSONResponse
 		resp.Error = true
 		resp.Message = "Missing or invalid auth token header"
 		fmt.Printf("\n%s", headerToken)

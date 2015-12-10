@@ -19,7 +19,7 @@ var tokenSize int = 16
 
 func SaveSession(w http.ResponseWriter, r *http.Request, email string, sessions map[string]Session) string {
 
-	token := randToken()
+	token := randToken(tokenSize)
 	prevToken, err := r.Cookie(authTokenKey)
 
 	// found cookie
@@ -42,8 +42,8 @@ func SaveSession(w http.ResponseWriter, r *http.Request, email string, sessions 
 	return token;
 }
 
-func randToken() string {
-	token := make([]byte, tokenSize)
+func randToken(size int) string {
+	token := make([]byte, size)
 	rand.Read(token)
 	return fmt.Sprintf("%x", token)
 }

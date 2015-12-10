@@ -11,6 +11,8 @@ import (
 	"net/http"
 )
 
+var UserActionTableName string = "one_time_actions"
+
 func addUserToDB(qString string, user User) bool {
 	// hash password
 	hasher := sha1.New()
@@ -87,7 +89,7 @@ func getUsersFromDB(qString string) string {
 	return string(retVal)
 }
 
-func tryToLogIn(w http.ResponseWriter, r *http.Request, email string, password string) LoginResponse {
+func tryToLogIn(w http.ResponseWriter, r *http.Request, email string, password string) JSONResponse {
 	// hash password
 	hasher := sha1.New()
 	hasher.Write([]byte(password))
@@ -98,7 +100,7 @@ func tryToLogIn(w http.ResponseWriter, r *http.Request, email string, password s
 	queryString = queryString + " WHERE Email = '" + email + "'"
 	retString := getUsersFromDB(queryString)
 	var data Users
-	var resp LoginResponse
+	var resp JSONResponse
 	if err := json.Unmarshal([]byte(retString), &data); err != nil {
 		log.Fatal(err)
 		resp.Error = true
@@ -115,6 +117,19 @@ func tryToLogIn(w http.ResponseWriter, r *http.Request, email string, password s
 		resp.Message = SaveSession(w, r, email, sessions)
 	}
 	return resp
+}
+
+func AddUserActionToDB(token string, userAction UserAction) bool {
+	qString := "INSERT INTO " + UserActionTableName + " (Token,Email,Action) values(\"" + token + "\",\"" + userAction.Email + "\",\"" + userAction.Action + "\");"
+	fmt.Printf("\nQuery String: %s\n", qString)
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	defer db.Close()
+	_, err := db.Exec(qString)
+	if err != nil {
+		fmt.Printf("\nQuery failed\n")
+		return false
+	}
+	return true
 }
 
 // qType is "GET", "INSERT", "DELETE", or "UPDATE"
