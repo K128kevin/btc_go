@@ -32,7 +32,7 @@ func ApiRootHandler(w http.ResponseWriter, r *http.Request) {
 // handle requests to users endpoint ("/users")
 func AllUsers(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
-	queryString := makeUserQueryString("GET", "")
+	queryString := MakeUserQueryString("GET", "")
 	displayString := getUsersFromDB(queryString)
 	if displayString == "null" {
 		displayString = "No data found :("
@@ -46,7 +46,7 @@ func SpecificUser(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	userId := vars["userId"]
-	queryString := makeUserQueryString("GET", userId)
+	queryString := MakeUserQueryString("GET", userId)
 	displayString := getUsersFromDB(queryString)
 	if displayString == "null" {
 		displayString = "No data found :("
@@ -55,6 +55,7 @@ func SpecificUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func UserTokenGenAndEmailLink(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nStarting UserTokenGenAndEmailLink handler\n")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	var userAction UserAction
@@ -76,7 +77,8 @@ func UserTokenGenAndEmailLink(w http.ResponseWriter, r *http.Request) {
 	// add this token to db
 	var status JSONResponse
 	// verify action and user
-	displayString := getUsersFromDB("select * from users where Email = \"" + userAction.Email + "\";")
+	fmt.Printf("\nGetting Users From DB...\n")
+	displayString := getUsersFromDB("select id, FirstName, LastName, Email, Salt from users where Email = \"" + userAction.Email + "\";")
 	if displayString == "null" {
 		status.Error = true
 		status.Message = "Could not find email " + userAction.Email
@@ -92,16 +94,48 @@ func UserTokenGenAndEmailLink(w http.ResponseWriter, r *http.Request) {
 	}
 	retVal, _ := json.Marshal(status)
 	fmt.Fprintf(w, string(retVal))
+
+	go sendEmail(userAction, token)
 }
 
 func DoAction(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("\nStarting DoAction...")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-//	vars := mux.Vars(r)
-//	token := vars["token"]
+	vars := mux.Vars(r)
+	token := vars["token"]
 	var status JSONResponse
 	// try to get data from token, return error if it does not exist
+	email, action, err := GetActionFromDB(token)
+	if err != nil || action == "" {
+		status.Error = true
+		status.Message = "could not find action for given token"
+	} else if action == "resetPassword" {
+		newPassword := randToken(10)
+		err := SetPassword(email, newPassword)
+		emailPassword(email, newPassword)
+		if err != nil {
+			status.Error = true
+			status.Message = "failed to reset password"
+		} else {
+			status.Error = false
+			status.Message = "successfully set password"
+		}
+	} else if action == "verifyEmail" {
+		err := MakeVerified(email)
+		if err != nil {
+			status.Error = true
+			status.Message = "failed to verify account"
+		} else {
+			status.Error = false
+			status.Message = "successfully verified account"
+		}
+	}
 
-	// if token does exist, perform action and remove it from the database
+	err = DeleteActionFromDB(token)
+	if err != nil {
+		status.Error = true
+		status.Message = "failed to delete action from database"
+	}
 
 	// return status of action
 
@@ -124,8 +158,8 @@ func UserCreate(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	}
-	queryString := makeUserQueryString("INSERT", "")
-	if (!addUserToDB(queryString, user)) {
+	queryString := MakeUserQueryString("INSERT", "")
+	if (!AddUserToDB(queryString, user)) {
 		fmt.Fprintf(w, "Failed to add user to database")
 	} else {
 		AllUsers(w, r)
@@ -137,8 +171,8 @@ func UserDelete(w http.ResponseWriter, r *http.Request) {
     w.Header().Set("Access-Control-Allow-Origin", "*")
 	vars := mux.Vars(r)
 	userId := vars["userId"]
-	queryString := makeUserQueryString("DELETE", userId)
-	if (!deleteUserFromDB(queryString)) {
+	queryString := MakeUserQueryString("DELETE", userId)
+	if (!DeleteUserFromDB(queryString)) {
 		fmt.Fprintf(w, "Failed to delete user with id: %s", userId)
 	} else {
 		AllUsers(w, r)
@@ -164,8 +198,8 @@ func UserEdit(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	}
-	queryString := makeUserQueryString("UPDATE", userId)
-	if (!editUserInDB(queryString, edit)) {
+	queryString := MakeUserQueryString("UPDATE", userId)
+	if (!EditUserInDB(queryString, edit)) {
 		fmt.Fprintf(w, "Failed to edit user with id: %s", userId)
 	} else {
 		AllUsers(w, r)
@@ -188,9 +222,58 @@ func ThrottleLoginAttempts() {
 	}
 }
 
+// handnles requests to change password given current password and new password
+func ChangePassword(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		panic(err)
+	}
+
+	var newPass NewPass
+	if err := json.Unmarshal(body, &newPass); err != nil {
+		w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+		w.WriteHeader(422) // unprocessable entity
+		if err := json.NewEncoder(w).Encode(err); err != nil {
+			panic(err)
+		}
+	}
+
+	retVal, _ := json.Marshal(tryToChangePassword(newPass))
+	fmt.Fprintf(w, string(retVal))
+}
+
+// handles logout attempts to /users/logout
+func UserLogout(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	bodyBytes, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
+	if err != nil {
+		panic(err)
+	}
+	body := string(bodyBytes)
+
+	var status JSONResponse
+
+	if _, ok := sessions[body]; ok {
+		delete(sessions, body)
+		status.Error = false
+		status.Message = "success"
+	} else {
+		status.Error = true
+		status.Message = "Could not find session"
+	}
+
+	retVal, _ := json.Marshal(status)
+	fmt.Fprintf(w, string(retVal))
+
+}
+
 // handles login attempts to /users/login
 func UserLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	var result JSONResponse
 	fmt.Printf("\nADDR: %s", r.RemoteAddr)
 	if _, ok := LoginAttempts[r.RemoteAddr]; ok {
@@ -205,7 +288,6 @@ func UserLogin(w http.ResponseWriter, r *http.Request) {
 	} else {
 		LoginAttempts[r.RemoteAddr] = 1
 	}
-    w.Header().Set("Access-Control-Allow-Origin", "*")
 	body, err := ioutil.ReadAll(io.LimitReader(r.Body, 1048576))
 	if err != nil {
 		panic(err)
@@ -221,9 +303,19 @@ func UserLogin(w http.ResponseWriter, r *http.Request) {
 
 	email := login.Email
 	pass := login.Password
-	result = tryToLogIn(w, r, email, pass)
+
+	var status JSONResponse
+	// check that the account is verified
+	if !IsVerified(email) {
+		status.Error = true
+		status.Message = "You must verify this account before you can log in. Please check your email."
+		retVal, _ := json.Marshal(status)
+		fmt.Fprintf(w, string(retVal))
+		return
+	}
+
+	result = TryToLogIn(w, r, email, pass)
 	retVal, err := json.Marshal(result)
-//	token := SaveSession(w, r, email, sessions)
 	if err != nil {
 		panic(err)
 	}

@@ -24,3 +24,9 @@ type UserAction struct {
 	Email			string
 	Action			string
 }
+
+type NewPass struct {
+	Email			string
+	OldPass			string
+	NewPass			string
+}

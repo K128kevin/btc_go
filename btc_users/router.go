@@ -60,7 +60,7 @@ var routes = Routes {
 	},
 	Route {
 		"DoAction",
-		"POST",
+		"GET",
 		apiRoot + "/doaction/{token}",
 		DoAction,
 	},
@@ -99,6 +99,18 @@ var routes = Routes {
 		"POST",
 		apiRoot + "/users/login",
 		UserLogin,
+	},
+	Route {
+		"Logout",
+		"POST",
+		apiRoot + "/users/logout",
+		UserLogout,
+	},
+	Route {
+		"ChangePassword",
+		"POST",
+		apiRoot + "/users/changepassword",
+		ChangePassword,
 	},
 	Route {
 		"CheckSession",
