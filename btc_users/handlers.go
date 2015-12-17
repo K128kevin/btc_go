@@ -158,12 +158,17 @@ func UserCreate(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 	}
+	var status JSONResponse
 	queryString := MakeUserQueryString("INSERT", "")
 	if (!AddUserToDB(queryString, user)) {
-		fmt.Fprintf(w, "Failed to add user to database")
+		status.Error = true
+		status.Message = "Failed to create user"
 	} else {
-		AllUsers(w, r)
+		status.Error = false
+		status.Message = "success"
 	}
+	retVal, _ := json.Marshal(status)
+	fmt.Fprintf(w, string(retVal))
 }
 
 // deletes specified user from database and displays updated json data of all users

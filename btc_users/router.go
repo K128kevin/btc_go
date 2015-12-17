@@ -107,6 +107,12 @@ var routes = Routes {
 		UserLogout,
 	},
 	Route {
+		"SignUp",
+		"POST",
+		apiRoot + "/signup",
+		UserCreate,
+	},
+	Route {
 		"ChangePassword",
 		"POST",
 		apiRoot + "/users/changepassword",

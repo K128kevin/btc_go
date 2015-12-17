@@ -30,7 +30,7 @@ func sendEmail(userAction UserAction, token string) {
 		body = "<h3>To reset your password, please click the following link. You will then be sent an email containing your new password.</h3>"
 		body = body + "<br><br>" + link
 		subject = "Request to reset password"
-	} else if userAction.Action == "verifyAccount" {
+	} else if userAction.Action == "verifyEmail" {
 		body = "<h3>Please click the following link to verify your account</h3>"
 		body = body + "<br><br>" + link
 		subject = "Please verify your account"
