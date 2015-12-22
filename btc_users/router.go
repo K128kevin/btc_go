@@ -133,7 +133,7 @@ var routes = Routes {
 	Route {
 		"AddPredictionData",
 		"POST",
-		apiRoot + "/data/predictions",
+		apiRoot + "/data/predictions/2L55LO6L8A",
 		PredictionAdd,
 	},
 	Route {
@@ -145,7 +145,7 @@ var routes = Routes {
 	Route {
 		"AddPriceData",
 		"POST",
-		apiRoot + "/data/prices",
+		apiRoot + "/data/prices/2L55LO6L8A",
 		PriceAdd,
 	},
 }
