@@ -12,12 +12,13 @@ import (
 )
 
 var UserActionTableName string = "one_time_actions"
+var DB_NAME string = "user_data"
 
 func AddUserToDB(qString string, user User) bool {
 	// hash password
     user.Salt = HashPassword(user.Salt)
     // connect to db
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	defer db.Close()
 	_, err := db.Exec(qString + "'" +
 						user.FirstName + "','" +
@@ -31,7 +32,7 @@ func AddUserToDB(qString string, user User) bool {
 }
 
 func DeleteUserFromDB(qString string) bool {
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	defer db.Close()
 	_, err := db.Exec(qString)
 	if err != nil {
@@ -43,7 +44,7 @@ func DeleteUserFromDB(qString string) bool {
 func EditUserInDB(qString string, user User) bool {
 	// hash password
     user.Salt = HashPassword(user.Salt)
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	defer db.Close()
 	_, err := db.Exec(qString + "'" +
 						user.FirstName + "','" +
@@ -60,7 +61,7 @@ func GetActionFromDB(token string) (string, string, error) {
 	fmt.Printf("\nGetActionFromDB called\n")
 	var err error = nil
 
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	rows, _ := db.Query("select email, action from one_time_actions where token = \"" + token + "\";")
 	defer db.Close()
 	defer rows.Close()
@@ -77,7 +78,7 @@ func GetActionFromDB(token string) (string, string, error) {
 }
 
 func DeleteActionFromDB(token string) error {
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	defer db.Close()
 
 	_, err := db.Exec("delete from one_time_actions where token = \"" + token + "\";")
@@ -85,7 +86,7 @@ func DeleteActionFromDB(token string) error {
 }
 
 func getUsersFromDB(qString string) string {
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	rows, _ := db.Query(qString)
 	defer db.Close()
 	defer rows.Close()
@@ -174,7 +175,7 @@ func AddUserActionToDB(token string, userAction UserAction) bool {
 	fmt.Printf("\nAddUserActionToDB called\n")
 	qString := "INSERT INTO " + UserActionTableName + " (Token,Email,Action) values(\"" + token + "\",\"" + userAction.Email + "\",\"" + userAction.Action + "\");"
 	fmt.Printf("\nQuery String: %s\n", qString)
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	defer db.Close()
 	_, err := db.Exec(qString)
 	if err != nil {
@@ -207,7 +208,7 @@ func MakeUserQueryString(qType string, id string) string {
 
 func IsVerified(email string) bool {
 	fmt.Printf("\nisVerified called\n")
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	rows, _ := db.Query("select * from users where Verified = true AND Email = \"" + email + "\"")
 	defer db.Close()
 	defer rows.Close()
@@ -218,7 +219,7 @@ func IsVerified(email string) bool {
 
 func MakeVerified(email string) error {
 	fmt.Printf("\nmakeVerified called\n")
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	defer db.Close()
 
 	fmt.Printf("\nEmail: %s\n", email)
@@ -228,7 +229,7 @@ func MakeVerified(email string) error {
 
 func SetPassword(email string, password string) error {
 	fmt.Printf("\nsetPassword called\n")
-	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/TestDB")
+	db, _ := sql.Open("mysql", "root:@tcp(127.0.0.1:3306)/" + DB_NAME)
 	defer db.Close()
 
 	// hash password
